@@ -32,3 +32,17 @@ Offensive content is strictly opt-in at two levels:
 
 It must be explicitly enabled at build time with --include-offensive.
 Even when compiled in, cobfortune will not display it at runtime unless the user passes -o or -a.
+
+Requirements
+------------
+* GnuCOBOL 3.2 or later
+* CMake 3.10 or later
+* A C compiler
+
+Building
+--------
+To build the project, run the following commands in the project root directory:
+```
+cmake .
+make
+```

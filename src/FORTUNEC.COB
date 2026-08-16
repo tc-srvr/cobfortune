@@ -27,11 +27,11 @@
                ORGANIZATION IS INDEXED
                ACCESS MODE IS DYNAMIC
                RECORD KEY IS FF-KEY
-               FILE STATUS IS FF-STATUS.
+               FILE STATUS IS FF-OUTFILE-STATUS.
 
            SELECT FORTUNE-INPUT-FILE ASSIGN TO WS-FORTUNE-FILE-INPUT
                ORGANIZATION IS LINE SEQUENTIAL
-               FILE STATUS IS FF-INPUT-FILE-STATUS.
+               FILE STATUS IS FF-INFILE-STATUS.
 
        DATA DIVISION.
        FILE SECTION.
@@ -60,10 +60,11 @@
        77  NAME-OF-PROGRAM   PIC X(9) VALUE 'FORTUNEC '.
        77  DESCRIPTION       PIC X(80) VALUE 'Fortune Cookie Compiler'.
        
-       77  FF-STATUS PIC XX.
-       77  FF-INPUT-FILE-STATUS PIC XX.
+       77  FF-OUTFILE-STATUS PIC XX.
+       77  FF-INFILE-STATUS  PIC XX.
 
        01  WS-VARS.
+           05  WS-ERROR-OCCURED               PIC X VALUE 'N'.
            05  WS-FORTUNE-FILE-OUTPUT         PIC X(256) VALUE SPACES.
            05  WS-FORTUNE-FILE-INPUT          PIC X(256) VALUE SPACES.
            05  WS-FORTUNE-COUNT               PIC 9(7) COMP-3 VALUE 0.
@@ -155,7 +156,10 @@
                      DISPLAY HELP-LINE (HELP-LINE-IDX)
                   END-PERFORM
                   GO TO 00000-EXIT.
-      *         PERFORM 20000-OPEN-FILES.
+                PERFORM 20000-OPEN-FILES
+                   THRU 20000-EXIT.
+                IF  WS-ERROR-OCCURED EQUAL 'Y'
+                    GO TO 00000-EXIT.
       *         PERFORM 30000-PROCESS-FORTUNES.
       *         PERFORM 40000-CLOSE-FILES.
       *         PERFORM 90000-CLEANUP.
@@ -186,19 +190,11 @@
                        MOVE 'Y' TO WS-HELP-MODE
                    END-IF
                    IF  LS-ARGUMENT-SWITCH (LS-ARGUMENT-IDX) = '-i'
-                       ADD  1 
-                        TO LS-ARGUMENT-IDX
-                       IF  LS-ARGUMENT-IDX NOT GREATER THAN 8
-                           MOVE LS-ARGUMENT (LS-ARGUMENT-IDX) 
-                             TO WS-FORTUNE-FILE-INPUT
-                       END-IF
+                       PERFORM 10100-CHECK-INPUT-FILE-SWITCH
+                          THRU 10100-EXIT
                    ELSE IF LS-ARGUMENT-SWITCH (LS-ARGUMENT-IDX) = '-o'
-                       ADD  1 
-                        TO LS-ARGUMENT-IDX
-                       IF  LS-ARGUMENT-IDX NOT GREATER THAN 8
-                           MOVE LS-ARGUMENT (LS-ARGUMENT-IDX) 
-                             TO WS-FORTUNE-FILE-OUTPUT
-                       END-IF 
+                       PERFORM 10200-CHECK-OUT-FILE-SWITCH
+                          THRU 10200-EXIT
                    ELSE IF LS-ARGUMENT-SWITCH (LS-ARGUMENT-IDX) = '-v'
                        MOVE 'Y' TO WS-VERBOSE-MODE
                    ELSE IF LS-ARGUMENT-SWITCH (LS-ARGUMENT-IDX) = '-f'
@@ -222,19 +218,83 @@
                    END-IF
                END-IF
            END-PERFORM.
-
-              IF  WS-FORTUNE-FILE-INPUT EQUAL SPACES
-                  DISPLAY 'Input file not specified. Use -i switch.'
-                  MOVE 'Y' TO WS-HELP-MODE
-              END-IF.
-              IF  WS-FORTUNE-FILE-OUTPUT EQUAL SPACES
-                  DISPLAY 'Output file not specified. Use -o switch.'
-                  MOVE 'Y' TO WS-HELP-MODE
-              END-IF.
-
        10000-EXIT.
            EXIT.
 
+       10100-CHECK-INPUT-FILE-SWITCH.
+           ADD 1 
+            TO LS-ARGUMENT-IDX
+           IF  LS-ARGUMENT-IDX NOT GREATER THAN 8 
+           AND NOT LS-ARG-IS-SWITCH (LS-ARGUMENT-IDX)
+                 MOVE LS-ARGUMENT (LS-ARGUMENT-IDX) 
+                   TO WS-FORTUNE-FILE-INPUT
+            ELSE
+               SUBTRACT 1 
+                FROM LS-ARGUMENT-IDX
+           END-IF.
+           IF  WS-FORTUNE-FILE-INPUT EQUAL SPACES
+                  DISPLAY 'Input file not specified. Use -i switch.'
+                  MOVE 'Y' TO WS-HELP-MODE
+            END-IF.
+       10100-EXIT.
+           EXIT.
+       10200-CHECK-OUT-FILE-SWITCH.
+           ADD 1 
+            TO LS-ARGUMENT-IDX
+           IF  LS-ARGUMENT-IDX NOT GREATER THAN 8 
+           AND NOT LS-ARG-IS-SWITCH (LS-ARGUMENT-IDX)
+                 MOVE LS-ARGUMENT (LS-ARGUMENT-IDX) 
+                   TO WS-FORTUNE-FILE-OUTPUT
+           ELSE
+               SUBTRACT 1 
+                FROM LS-ARGUMENT-IDX
+           END-IF.
+           IF  WS-FORTUNE-FILE-OUTPUT EQUAL SPACES
+                  DISPLAY 'Output file not specified. Use -o switch.'
+                  MOVE 'Y' TO WS-HELP-MODE
+            END-IF.
+       10200-EXIT.
+           EXIT.    
+
+       20000-OPEN-FILES.
+           PERFORM 20100-OPEN-INPUT-FILE
+              THRU 20100-EXIT.
+           IF  WS-ERROR-OCCURED EQUAL 'Y'
+               GO TO 20000-EXIT.
+           PERFORM 20200-OPEN-OUTPUT-FILE
+              THRU 20200-EXIT. 
+       20000-EXIT.
+           EXIT.
+
+       20100-OPEN-INPUT-FILE.
+           IF  WS-VERBOSE-MODE EQUAL 'Y'
+               DISPLAY 'Opening input file: ' WS-FORTUNE-FILE-INPUT
+           END-IF.
+           OPEN INPUT FORTUNE-INPUT-FILE.
+           IF  FF-INFILE-STATUS NOT EQUAL '00'
+               MOVE 'Y'                     TO WS-ERROR-OCCURED
+               DISPLAY 'Error opening input file: '
+      -            WS-FORTUNE-FILE-INPUT ' Status: ' 
+      -            FF-INFILE-STATUS
+           END-IF.
+       20100-EXIT.
+           EXIT.
+
+       20200-OPEN-OUTPUT-FILE.
+           IF  WS-VERBOSE-MODE EQUAL 'Y'
+               DISPLAY 'Opening output file: ' WS-FORTUNE-FILE-OUTPUT
+           END-IF.
+           OPEN I-O FORTUNE-FILE.
+           IF  FF-OUTFILE-STATUS NOT EQUAL '00'
+               MOVE 'Y'                     TO WS-ERROR-OCCURED
+               DISPLAY 'Error opening input file: '
+      -                WS-FORTUNE-FILE-INPUT ' Status: ' 
+      -                FF-INFILE-STATUS 
+           END-IF.
+       20200-EXIT.
+           EXIT.    
+
+       
 
 
 
